@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <body>
+    <script src="/fsm.quick.implementation.js"></script>
+    <script>
+      var clock = new FSM()
+
+      clock.defineState('tick').from('tock')
+      clock.defineState('tock').from('tick')
+
+      clock.enter('tick').do(function() {
+        console.log('tick')
+
+        setTimeout(function() {
+          clock.become('tock')
+        }, 1e3)
+      })
+
+      clock.enter('tock').do(function() {
+        console.log('tock')
+
+        setTimeout(function() {
+          clock.become('tick')
+        }, 1e3)
+      })
+
+      clock.start('tick')
+
+      var fsm = new FSM()
+      fsm.defineState('still').from('moving')
+      fsm.defineState('moving').from('still', 'moving')
+
+      fsm.enter('still').do(function() {
+        console.log('enter still, unregister mouseup, mousemove')
+
+        window.removeEventListener('mouseup', loop)
+        window.removeEventListener('mousemove', loop)
+      })
+
+      fsm.exit('still').do(function() {
+        console.log('exit still, register mouseup, mousemove')
+
+        window.addEventListener('mouseup', loop)
+        window.addEventListener('mousemove', loop)
+      })
+
+      fsm.enter('moving').do(function() {
+        console.log(`moving ${fsm._data.screenX} ${fsm._data.screenY}`)
+      })
+
+      function loop(event) {
+        if (event.type === 'mousedown') return fsm.become('moving', event)
+
+        if (event.type === 'mouseup') return fsm.become('still')
+
+        if (event.type === 'mousemove') return fsm.become('moving', event)
+      }
+
+      window.addEventListener('mousedown', loop)
+
+      fsm.start('still')
+    </script>
+  </body>
+</html>

@@ -1,0 +1,126 @@
+/* desired behaviors */
+
+// getters
+fsm.state -> current state name
+fsm.data -> current state data
+
+// methods
+fsm.at(state name) -> true/false
+fsm.canBecome(next state) -> true/false
+fsm.become(next state, data) -> next state name
+
+// hooks
+fsm.beforeEnter(state name).do(smth)
+fsm.enter(state name).do(smth)
+fsm.beforeExit(state name).do(smth)
+fsm.exit(state name).do(smth)
+
+/* desired constructor */
+
+fsm = FSM.create(fsm name)
+
+fsm.defineState(state name)
+.from(previous states)
+
+fsm.start(initial state, initial data)
+
+/* usage */
+
+/* tick & tock */
+
+var clock = FSM.create('clock')
+
+clock.defineState('tick').from('tock')
+clock.defineState('tock').from('tick')
+
+clock.enter('tick').do(function() {
+  wait(1e3)
+  clock.become('tock')
+})
+
+clock.enter('tock').do(function() {
+  wait(1e3)
+  clock.become('tick')
+})
+
+clock.start('tick')
+
+/* drag & drop */
+var dragdrop = FSM.create('dragdrop')
+
+dragdrop.defineState('still').from('dragging')
+dragdrop.defineState('dragging').from('still', 'dragging')
+
+var cancelEventHandler;
+
+dragdrop.enter('still').do(function() {
+  object.on('mousemove', null)
+  object.on('mouseup', null)
+})
+
+dragdrop.exit('still').do(function() {
+  object.on('mousemove', loop)
+  object.on('mouseup', loop)
+})
+
+dragdrop.enter('dragging').do(function() {
+  var event = dragdrop.data
+  move(object, event)
+})
+
+function loop(event) {
+  if (event.type === 'mousedown') return dragdrop.become('dragging', event)
+
+  if (event.type === 'mousemove') return dragdrop.become('dragging', event)
+
+  if (event.type === 'mouseup') return dragdrop.become('still')
+}
+
+object.on('mousedown', loop)
+
+
+/* authentication */
+var auth = FSM.create('auth')
+
+auth.defineState('unauthenticated')
+.from('authenticated', 'expiring')
+
+auth.defineState('authenticated')
+.from('unauthenticated', 'expiring')
+
+auth.defineState('expiring')
+.from('authenticated')
+
+auth.enter('authenticated').do(function() {
+  // session will expire after 60s
+  setTimeout(function() {
+    auth.become('expiring')
+  }, 60e3)
+})
+
+auth.enter('expiring').do(function() {
+  var expiringSession = auth.data
+  var refreshSessionSucceed = refreshSession(expiringSession)
+
+  if (refreshSessionSucceed) auth.become('authenticated')
+  else auth.become('unauthenticated')
+})
+
+// sign in
+if (auth.at('unauthenticated')) {
+  var session = createSession()
+  auth.become('authenticated', session)
+}
+
+// sign out
+if (auth.at('authenticated')) {
+  var session = auth.data
+  destroySession(session)
+  auth.become('unauthenticated')
+}
+
+// on page load
+var session = getSessionFromCookie()
+
+if (session) auth.start('authenticated', session)
+else auth.start('unauthenticated')
